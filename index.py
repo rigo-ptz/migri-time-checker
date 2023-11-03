@@ -1,6 +1,9 @@
 import requests
 import asyncio
 import datetime
+import os
+import schedule
+import time
 
 OFICES = {
     "Helsinki": {
@@ -28,7 +31,25 @@ DAY_DATEIME_FORMAT = "%d-%m-%Y"
 SLOT_DATETIME_FORMAT = "%H:%M"
 INPUT_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
 
+def display_notification(message, title=None, subtitle=None, soundname=None):
+    titlePart = ""
+    subtitlePart = ""
+    soundnamePart = ""
+    
+    if (not title is None):
+        titlePart = f"with title \"{title}\""
+    
+    if (not subtitle is None): 
+        subtitlePart = f"subtitle '{subtitle}'"
+    
+    if (not soundname is None): 
+        soundnamePart = f"sound name '{soundname}'"
+
+    appleScriptNotification = f"display notification \"{message}\" {titlePart} {subtitlePart} {soundnamePart}"
+    os.system(f"osascript -e '{appleScriptNotification}'")
+
 def get_office_times(office_id, year, week):
+    print(f"Get office times for year: {year}, week: {week}")
     url = URL.format(office_id=office_id, year=year, week=week)
     headers = {
         "authority": "migri.vihta.com",
@@ -62,6 +83,7 @@ async def print_time(daily_times):
         elif office_name_printed != True:
             print("Migri Helsinki")
             office_name_printed = True
+            display_notification(title="Migri Time Checker", message="Time found")
             
         day_date = datetime.datetime.strptime(day[0]["startTimestamp"], INPUT_DATE_FORMAT)
         day_date_formatted = day_date.strftime(DAY_DATEIME_FORMAT)
@@ -72,9 +94,9 @@ async def print_time(daily_times):
             slot_time = date_time.strftime(SLOT_DATETIME_FORMAT)
             print(f"        Time: {slot_time}, windows available: {number_of_queues}")
 
-async def main():
+async def main(loop):
     startTime = datetime.datetime.now()
-    endTime = startTime + datetime.timedelta(weeks=12)
+    endTime = startTime + datetime.timedelta(weeks=4)
     
     tasks = set()
     num_of_coroutines = 3
@@ -98,7 +120,15 @@ async def main():
         startTime = startTime + datetime.timedelta(weeks=1)
 
     await asyncio.wait(tasks)
+    
+def scheduled():
+    print("Scheduled started")
+    loop = asyncio.get_event_loop()
+    loop.run_until_complete(main(loop))
 
 if __name__ == "__main__":
-    loop = asyncio.get_event_loop()
-    loop.run_until_complete(main())
+    scheduled()
+    schedule.every(1).minute.do(scheduled)
+    while True:
+        schedule.run_pending()
+        time.sleep(1)
