@@ -22,12 +22,11 @@ BODY = {
     ],
     "extraServices": [ ]
 }
-# https://migri.vihta.com/public/migri/api/scheduling/offices/438cd01e-9d81-40d9-b31d-5681c11bd974/2024/w2?end_hours=24&start_hours=0
 URL = "https://migri.vihta.com/public/migri/api/scheduling/offices/{office_id}/{year}/w{week}?end_hours=24&start_hours=0"
 
-DATETIME_FORMAT = "%Y-%m-%d %H:%M"
+DAY_DATEIME_FORMAT = "%d-%m-%Y"
+SLOT_DATETIME_FORMAT = "%H:%M"
 INPUT_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
-
 
 def get_office_times(office_id, year, week):
     url = URL.format(office_id=office_id, year=year, week=week)
@@ -54,26 +53,51 @@ def get_office_times(office_id, year, week):
     )
     return r.json()["dailyTimesByOffice"]
 
-def print_time(dailyTimes):
-    for day in dailyTimes:
+async def print_time(daily_times):
+    office_name_printed = False
+    
+    for index, day in enumerate(daily_times):
+        if (len(day) == 0):
+            continue
+        elif office_name_printed != True:
+            print("Migri Helsinki")
+            office_name_printed = True
+            
+        day_date = datetime.datetime.strptime(day[0]["startTimestamp"], INPUT_DATE_FORMAT)
+        day_date_formatted = day_date.strftime(DAY_DATEIME_FORMAT)
+        print(f"    Day: {day_date_formatted}")
         for slot in day:
             number_of_queues = len(slot["resources"]);
-            dateTime = datetime.datetime.strptime(slot["startTimestamp"], INPUT_DATE_FORMAT)
-            slot_date = dateTime.strftime(DATETIME_FORMAT)
-            print(f"Migri Helsinki: {slot_date}, windows available: {number_of_queues}")
-    
+            date_time = datetime.datetime.strptime(slot["startTimestamp"], INPUT_DATE_FORMAT)
+            slot_time = date_time.strftime(SLOT_DATETIME_FORMAT)
+            print(f"        Time: {slot_time}, windows available: {number_of_queues}")
 
 async def main():
     startTime = datetime.datetime.now()
-    endTime = startTime + datetime.timedelta(weeks=4)
+    endTime = startTime + datetime.timedelta(weeks=12)
+    
+    tasks = set()
+    num_of_coroutines = 3
     
     while startTime < endTime:
+        if len(tasks) >= num_of_coroutines:
+            # Wait for some download to finish before adding a new one
+            _done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
+        
         year = startTime.year
         week = startTime.strftime("%V")
-        future = loop.run_in_executor(None, get_office_times, OFICES["Helsinki"]["office_id"], year, week)
-        dailyTimes = await future
-        print_time(dailyTimes)
+        
+        tasks.add(
+            loop.create_task(
+                print_time(
+                    get_office_times(OFICES["Helsinki"]["office_id"], year, week)
+                )
+            )
+        )
+        
         startTime = startTime + datetime.timedelta(weeks=1)
+
+    await asyncio.wait(tasks)
 
 if __name__ == "__main__":
     loop = asyncio.get_event_loop()
