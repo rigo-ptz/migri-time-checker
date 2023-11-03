@@ -26,32 +26,7 @@ BODY = {
     "extraServices": [ ]
 }
 URL = "https://migri.vihta.com/public/migri/api/scheduling/offices/{office_id}/{year}/w{week}?end_hours=24&start_hours=0"
-
-DAY_DATEIME_FORMAT = "%d-%m-%Y"
-SLOT_DATETIME_FORMAT = "%H:%M"
-INPUT_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
-
-def display_notification(message, title=None, subtitle=None, soundname=None):
-    titlePart = ""
-    subtitlePart = ""
-    soundnamePart = ""
-    
-    if (not title is None):
-        titlePart = f"with title \"{title}\""
-    
-    if (not subtitle is None): 
-        subtitlePart = f"subtitle '{subtitle}'"
-    
-    if (not soundname is None): 
-        soundnamePart = f"sound name '{soundname}'"
-
-    appleScriptNotification = f"display notification \"{message}\" {titlePart} {subtitlePart} {soundnamePart}"
-    os.system(f"osascript -e '{appleScriptNotification}'")
-
-def get_office_times(office_id, year, week):
-    print(f"Get office times for year: {year}, week: {week}")
-    url = URL.format(office_id=office_id, year=year, week=week)
-    headers = {
+HEADERS = {
         "authority": "migri.vihta.com",
         "Vihta-Session": SESSION_ID,
         "Content-Type": "application/json;charset=UTF-8",
@@ -67,10 +42,36 @@ def get_office_times(office_id, year, week):
         "authority": "migri.vihta.com",
         "User-Agent": "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/118.0.0.0 Safari/537.36"
     }
+
+DAY_DATEIME_FORMAT = "%d-%m-%Y"
+SLOT_DATETIME_FORMAT = "%H:%M"
+INPUT_DATE_FORMAT = "%Y-%m-%dT%H:%M:%S.%fZ"
+
+def display_notification(message, title=None, subtitle=None, soundname=None):
+    titlePart = ""
+    subtitlePart = ""
+    soundnamePart = ""
+    
+    if (not title is None):
+        titlePart = f"with title \"{title}\""
+    
+    if (not subtitle is None): 
+        subtitlePart = f"subtitle \"{subtitle}\""
+    
+    if (not soundname is None): 
+        soundnamePart = f"sound name \"{soundname}\""
+
+    appleScriptNotification = f"display notification \"{message}\" {titlePart} {subtitlePart} {soundnamePart}"
+    os.system(f"osascript -e '{appleScriptNotification}'")
+
+def get_office_times(office_id, year, week):
+    print(f"Get office times for year: {year}, week: {week}")
+    url = URL.format(office_id=office_id, year=year, week=week)
+    
     r = requests.post(
         url=url,
         json=BODY,
-        headers=headers
+        headers=HEADERS
     )
     return r.json()["dailyTimesByOffice"]
 
@@ -103,7 +104,6 @@ async def main(loop):
     
     while startTime < endTime:
         if len(tasks) >= num_of_coroutines:
-            # Wait for some download to finish before adding a new one
             _done, tasks = await asyncio.wait(tasks, return_when=asyncio.FIRST_COMPLETED)
         
         year = startTime.year
