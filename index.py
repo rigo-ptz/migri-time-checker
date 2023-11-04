@@ -128,7 +128,7 @@ def scheduled():
 
 if __name__ == "__main__":
     scheduled()
-    schedule.every(1).minute.do(scheduled)
+    schedule.every(2).minutes.do(scheduled)
     while True:
         schedule.run_pending()
         time.sleep(1)
